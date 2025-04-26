@@ -1,51 +1,40 @@
-const express = require('express');
+// Importing required modules
 const http = require('http');
 const socketIo = require('socket.io');
 
-const app = express();
-const server = http.createServer(app);
-const io = socketIo(server);
+// Creating an HTTP server
+const server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('Socket.IO server');
+});
 
-// Serve static files (your front-end HTML, CSS, JS)
-app.use(express.static('public'));
+// Setting up the Socket.IO server with CORS configurations
+const io = socketIo(server, {
+    cors: {
+        origin: "*", // Allows all origins (use cautiously in production)
+        methods: ["GET", "POST"]
+    }
+});
 
-let users = {};
-
-io.on('connection', socket => {
-    console.log('User connected: ', socket.id);
-
-    socket.on('join', partnerId => {
-        users[socket.id] = partnerId;
-        io.to(partnerId).emit('partner-found', socket.id);
+// Handling incoming socket connections
+io.on('connection', (socket) => {
+    console.log('A user connected');
+    
+    // Emitting a message to the client
+    socket.emit('message', 'Welcome to the chat!');
+    
+    // Listening for custom events from the client
+    socket.on('chatMessage', (msg) => {
+        console.log('Message from client: ' + msg);
     });
 
-    socket.on('offer', data => {
-        io.to(data.to).emit('offer', {
-            offer: data.offer,
-            from: socket.id
-        });
-    });
-
-    socket.on('answer', data => {
-        io.to(data.to).emit('answer', {
-            answer: data.answer,
-            from: socket.id
-        });
-    });
-
-    socket.on('ice-candidate', data => {
-        io.to(data.to).emit('ice-candidate', {
-            candidate: data.candidate,
-            from: socket.id
-        });
-    });
-
+    // Handling disconnection
     socket.on('disconnect', () => {
-        console.log('User disconnected: ', socket.id);
-        delete users[socket.id];
+        console.log('User disconnected');
     });
 });
 
+// Starting the server
 server.listen(3000, () => {
-    console.log('Server running on http://localhost:3000');
+    console.log('Server running on port 3000');
 });
