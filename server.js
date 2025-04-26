@@ -51,6 +51,22 @@ io.on('connection', (socket) => {
         users = users.filter(id => id !== socket.id);  // Remove disconnected user
         io.emit('partner-disconnected');  // Notify all clients
     });
+
+    // Relay WebRTC signaling data
+    socket.on('offer', (data) => {
+        console.log('Received offer:', data);
+        socket.to(data.to).emit('offer', data);  // Forward offer to the other peer
+    });
+
+    socket.on('answer', (data) => {
+        console.log('Received answer:', data);
+        socket.to(data.to).emit('answer', data);  // Forward answer to the other peer
+    });
+
+    socket.on('ice-candidate', (data) => {
+        console.log('Received ICE candidate:', data);
+        socket.to(data.to).emit('ice-candidate', data);  // Forward ICE candidate to the other peer
+    });
 });
 
 // Start the server
