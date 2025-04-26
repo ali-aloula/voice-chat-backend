@@ -14,7 +14,7 @@ io.on('connection', socket => {
     socket.on('ready', () => {
         console.log(socket.id, 'is ready');
         users.push(socket.id);
-        
+
         // If there are at least 2 users, match them
         if (users.length >= 2) {
             const user1 = users.pop();
