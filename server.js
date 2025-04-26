@@ -1,75 +1,51 @@
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
-const cors = require('cors');
 
-// Create an express app
 const app = express();
-
-// Set up CORS middleware for Socket.IO to allow requests from specific origins
-const corsOptions = {
-    origin: "https://wow.buy-scripts.com", // Allow requests only from this origin
-    methods: ["GET", "POST"], // Allow only GET and POST methods
-    allowedHeaders: ["Content-Type"], // Allow specific headers
-    credentials: true, // Allow cookies to be sent with requests
-};
-
-// Apply the CORS middleware globally
-app.use(cors(corsOptions));
-
-// Create an HTTP server to work with Socket.IO
 const server = http.createServer(app);
+const io = socketIo(server);
 
-// Create a Socket.IO instance attached to the HTTP server
-const io = socketIo(server, {
-    cors: corsOptions, // Apply CORS settings for Socket.IO
-});
+// Serve static files (your front-end HTML, CSS, JS)
+app.use(express.static('public'));
 
-let users = [];
+let users = {};
 
-io.on('connection', (socket) => {
-    console.log(`New connection: ${socket.id}`);
+io.on('connection', socket => {
+    console.log('User connected: ', socket.id);
 
-    socket.on('ready', () => {
-        console.log(`${socket.id} is ready`);
-        users.push(socket.id);
+    socket.on('join', partnerId => {
+        users[socket.id] = partnerId;
+        io.to(partnerId).emit('partner-found', socket.id);
+    });
 
-        // Check if there are two users ready, then match them
-        if (users.length >= 2) {
-            const user1 = users.pop(); // First user in the queue
-            const user2 = users.pop(); // Second user in the queue
-            console.log('Matched users:', user1, user2);
+    socket.on('offer', data => {
+        io.to(data.to).emit('offer', {
+            offer: data.offer,
+            from: socket.id
+        });
+    });
 
-            // Emit the "match" event to both users
-            io.to(user1).emit('match', user2);
-            io.to(user2).emit('match', user1);
-        }
+    socket.on('answer', data => {
+        io.to(data.to).emit('answer', {
+            answer: data.answer,
+            from: socket.id
+        });
+    });
+
+    socket.on('ice-candidate', data => {
+        io.to(data.to).emit('ice-candidate', {
+            candidate: data.candidate,
+            from: socket.id
+        });
     });
 
     socket.on('disconnect', () => {
-        console.log(`${socket.id} disconnected`);
-        users = users.filter(id => id !== socket.id);  // Remove disconnected user
-        io.emit('partner-disconnected');  // Notify all clients
-    });
-
-    // Relay WebRTC signaling data
-    socket.on('offer', (data) => {
-        console.log('Received offer:', data);
-        socket.to(data.to).emit('offer', data);  // Forward offer to the other peer
-    });
-
-    socket.on('answer', (data) => {
-        console.log('Received answer:', data);
-        socket.to(data.to).emit('answer', data);  // Forward answer to the other peer
-    });
-
-    socket.on('ice-candidate', (data) => {
-        console.log('Received ICE candidate:', data);
-        socket.to(data.to).emit('ice-candidate', data);  // Forward ICE candidate to the other peer
+        console.log('User disconnected: ', socket.id);
+        delete users[socket.id];
     });
 });
 
-// Start the server
 server.listen(3000, () => {
-    console.log('Server listening on port 3000');
+    console.log('Server running on http://localhost:3000');
 });
