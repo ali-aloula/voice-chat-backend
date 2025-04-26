@@ -1,21 +1,28 @@
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
+const cors = require('cors');
 
 // Create an express app
 const app = express();
+
+// Set up CORS middleware for Socket.IO to allow requests from specific origins
+const corsOptions = {
+    origin: "https://wow.buy-scripts.com", // Allow requests only from this origin
+    methods: ["GET", "POST"], // Allow only GET and POST methods
+    allowedHeaders: ["Content-Type"], // Allow specific headers
+    credentials: true, // Allow cookies to be sent with requests
+};
+
+// Apply the CORS middleware globally
+app.use(cors(corsOptions));
 
 // Create an HTTP server to work with Socket.IO
 const server = http.createServer(app);
 
 // Create a Socket.IO instance attached to the HTTP server
 const io = socketIo(server, {
-    cors: {
-        origin: "https://wow.buy-scripts.com", // Allow your frontend domain
-        methods: ["GET", "POST"], // Allow GET and POST methods
-        allowedHeaders: ["Content-Type"], // Allow Content-Type header
-        credentials: true, // Allow cookies to be sent across origins
-    },
+    cors: corsOptions, // Apply CORS settings for Socket.IO
 });
 
 let users = [];
