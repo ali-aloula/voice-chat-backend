@@ -1,37 +1,48 @@
-let waitingUser = null;
+const express = require('express');
+const http = require('http');
+const socketIo = require('socket.io');
+const app = express();
+const server = http.createServer(app);
+const io = socketIo(server);
 
-io.on('connection', (socket) => {
-    console.log('User connected:', socket.id);
+// Array to keep track of online users (just for matching purposes)
+let users = [];
+
+io.on('connection', socket => {
+    console.log('New connection:', socket.id);
 
     socket.on('ready', () => {
-        if (waitingUser && waitingUser !== socket) {
-            // Match them
-            socket.emit('match', waitingUser.id);
-            waitingUser.emit('match', socket.id);
-            waitingUser = null;
-        } else {
-            // No one waiting
-            waitingUser = socket;
+        console.log(socket.id, 'is ready');
+        users.push(socket.id);
+        
+        // If there are at least 2 users, match them
+        if (users.length >= 2) {
+            const user1 = users.pop();
+            const user2 = users.pop();
+            io.to(user1).emit('match', user2);
+            io.to(user2).emit('match', user1);
         }
+    });
+
+    socket.on('offer', (offer, partnerId) => {
+        io.to(partnerId).emit('offer', offer);
+    });
+
+    socket.on('answer', (answer, partnerId) => {
+        io.to(partnerId).emit('answer', answer);
+    });
+
+    socket.on('ice-candidate', (candidate, partnerId) => {
+        io.to(partnerId).emit('ice-candidate', candidate);
     });
 
     socket.on('disconnect', () => {
-        console.log('User disconnected:', socket.id);
-        if (waitingUser === socket) {
-            waitingUser = null;
-        }
-        socket.broadcast.emit('partner-disconnected');
+        console.log(socket.id, 'disconnected');
+        users = users.filter(id => id !== socket.id);
+        io.emit('partner-disconnected');
     });
+});
 
-    socket.on('offer', (offer) => {
-        socket.broadcast.emit('offer', offer);
-    });
-
-    socket.on('answer', (answer) => {
-        socket.broadcast.emit('answer', answer);
-    });
-
-    socket.on('ice-candidate', (candidate) => {
-        socket.broadcast.emit('ice-candidate', candidate);
-    });
+server.listen(3000, () => {
+    console.log('Server running on http://localhost:3000');
 });
